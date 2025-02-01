@@ -19,7 +19,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
 4. Required Python libraries installed:
 
    ```bash
-   pip install markdown PyYAML requests
+   pip install markdown PyYAML requests python-dotenv
    ```
 
 ---

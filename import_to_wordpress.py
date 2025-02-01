@@ -2,6 +2,7 @@ import os
 import markdown
 import requests
 import yaml
+import subprocess
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -26,6 +27,17 @@ def create_slug_from_url(url):
     """Extract slug from the URL by removing year, month, and day."""
     parts = url.strip("/").split("/")
     return parts[-1] if parts else ""
+
+def convert_markdown_to_html_with_hugo(file_path):
+    """Convert Markdown file to HTML using Hugo."""
+    result = subprocess.run(
+        ["hugo", "convert", "toHTML", file_path],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Hugo conversion failed: {result.stderr}")
+    return result.stdout
 
 def post_to_wordpress(metadata, html_content):
     """Post the extracted data to WordPress."""
@@ -66,7 +78,7 @@ def main():
             print(f"Processing file: {file_path}")
             
             metadata, markdown_content = parse_markdown_file(file_path)
-            html_content = markdown.markdown(markdown_content)
+            html_content = convert_markdown_to_html_with_hugo(file_path)
             post_to_wordpress(metadata, html_content)
 
 if __name__ == "__main__":

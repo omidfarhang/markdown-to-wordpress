@@ -12,6 +12,7 @@ WORDPRESS_URL = os.getenv("WORDPRESS_URL")
 USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 MARKDOWN_DIRECTORY = os.getenv("MARKDOWN_DIRECTORY")
+MARKDOWN_PARSER = os.getenv("MARKDOWN_PARSER", "normal")
 
 def parse_markdown_file(file_path):
     """Parse metadata and content from the Markdown file."""
@@ -28,16 +29,30 @@ def create_slug_from_url(url):
     parts = url.strip("/").split("/")
     return parts[-1] if parts else ""
 
-def convert_markdown_to_html_with_hugo(file_path):
-    """Convert Markdown file to HTML using Hugo."""
-    result = subprocess.run(
-        ["hugo", "convert", "toHTML", file_path],
-        capture_output=True,
-        text=True
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Hugo conversion failed: {result.stderr}")
-    return result.stdout
+def convert_markdown_to_html(file_path):
+    """Convert Markdown file to HTML based on the specified parser."""
+    if MARKDOWN_PARSER == "hugo":
+        result = subprocess.run(
+            ["hugo", "convert", "toHTML", file_path],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Hugo conversion failed: {result.stderr}")
+        return result.stdout
+    elif MARKDOWN_PARSER == "jekyll":
+        result = subprocess.run(
+            ["jekyll", "build", "--source", file_path, "--destination", "output"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Jekyll conversion failed: {result.stderr}")
+        with open("output/index.html", "r", encoding="utf-8") as file:
+            return file.read()
+    else:
+        with open(file_path, "r", encoding="utf-8") as file:
+            return markdown.markdown(file.read())
 
 def post_to_wordpress(metadata, html_content):
     """Post the extracted data to WordPress."""
@@ -78,7 +93,7 @@ def main():
             print(f"Processing file: {file_path}")
             
             metadata, markdown_content = parse_markdown_file(file_path)
-            html_content = convert_markdown_to_html_with_hugo(file_path)
+            html_content = convert_markdown_to_html(file_path)
             post_to_wordpress(metadata, html_content)
 
 if __name__ == "__main__":

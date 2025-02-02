@@ -8,6 +8,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
 - Converts Markdown content to HTML.
 - Supports slug customization by extracting the last segment of the URL.
 - Automatically posts content to WordPress with proper authentication.
+- Supports different Markdown parsers: normal, Hugo, and Jekyll.
 
 ---
 
@@ -50,6 +51,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
    USERNAME=your_username
    PASSWORD=your_password
    MARKDOWN_DIRECTORY=/path/to/markdown/files
+   MARKDOWN_PARSER=normal  # Options: normal, hugo, jekyll
    ```
 
 3. Install dependencies:
@@ -75,7 +77,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
 3. The script will:
    - Read each `.md` file in the directory.
    - Parse the YAML front matter and Markdown content.
-   - Convert the content to HTML.
+   - Convert the content to HTML using the specified parser.
    - Create a new WordPress post using the WordPress REST API.
 
 ---

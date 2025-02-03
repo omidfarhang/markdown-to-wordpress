@@ -73,6 +73,10 @@ def post_to_wordpress(metadata, html_content):
         "lang": metadata.get("lang", "en"),
     }
     
+    if not WORDPRESS_URL:
+        print("Error: WORDPRESS_URL is not set.")
+        return
+    
     response = requests.post(
         f"{WORDPRESS_URL}/posts",
         json=post_data,
@@ -134,19 +138,33 @@ def extract_categories(soup):
 def crawl_hugo_build(build_directory):
     """Crawl the Hugo build directory and extract post data."""
     for root, dirs, files in os.walk(build_directory):
+        # Limit the first level directories to those named as years
+        if root == build_directory:
+            dirs[:] = [d for d in dirs if d.isdigit() and len(d) == 4]
         if "index.html" in files:
             file_path = os.path.join(root, "index.html")
             with open(file_path, "r", encoding="utf-8") as file:
                 soup = BeautifulSoup(file, "html.parser")
                 
                 # Extract title
-                title = soup.find("h1", class_="post-title entry-hint-parent").text.strip()
+                title_element = soup.find("h1", class_="post-title entry-hint-parent")
+                if not title_element:
+                    print(f"Error: Title not found in {file_path}")
+                    continue
+                title = title_element.text.strip()
                 
                 # Extract date
-                date = soup.find("div", class_="post-meta").find("span", title=True)["title"]
+                date_element = soup.find("div", class_="post-meta").find("span", title=True)
+                if not date_element:
+                    print(f"Error: Date not found in {file_path}")
+                    continue
+                date = date_element["title"]
                 
                 # Extract content
                 content_div = soup.find("div", class_="post-content")
+                if not content_div:
+                    print(f"Error: Content not found in {file_path}")
+                    continue
                 html_content = str(content_div)
                 
                 # Extract slug from directory name
@@ -167,11 +185,10 @@ def crawl_hugo_build(build_directory):
                     "lang": "en",  # Default language
                 }
                 
-                post_to_wordpress(metadata, html_content)
+                export_now(metadata, html_content)
 
 def main():
     """Main function to process Markdown files or crawl Hugo build."""
-    export_mode = os.getenv("EXPORT_MODE", "import")  # Default to 'import' mode
     
     if MARKDOWN_PARSER == "hugo_build":
         build_directory = os.getenv("HUGO_BUILD_DIRECTORY")
@@ -192,12 +209,17 @@ def main():
                 metadata, markdown_content = parse_markdown_file(file_path)
                 html_content = convert_markdown_to_html(file_path)
                 
-                if export_mode == "export":
-                    if not os.path.isdir(EXPORT_DIRECTORY):
-                        os.makedirs(EXPORT_DIRECTORY)
-                    export_to_wxr(metadata, html_content, EXPORT_DIRECTORY)
-                else:
-                    post_to_wordpress(metadata, html_content)
+                export_now(metadata, html_content)
+
+def export_now(metadata, html_content):
+    export_mode = os.getenv("EXPORT_MODE", "import")  # Default to 'import' mode
+
+    if export_mode == "export":
+        if not os.path.isdir(EXPORT_DIRECTORY):
+            os.makedirs(EXPORT_DIRECTORY)
+        export_to_wxr(metadata, html_content, EXPORT_DIRECTORY)
+    else:
+        post_to_wordpress(metadata, html_content)
 
 if __name__ == "__main__":
     main()

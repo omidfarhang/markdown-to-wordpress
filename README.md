@@ -9,6 +9,9 @@ This project provides a Python script to import Markdown blog posts into a WordP
 - Supports slug customization by extracting the last segment of the URL.
 - Automatically posts content to WordPress with proper authentication.
 - Supports different Markdown parsers: normal, Hugo, and Jekyll.
+- Extracts tags and categories from Hugo build HTML files.
+- Imports from Jekyll and Hugo single files.
+- Crawls Hugo build directories to extract and import posts.
 
 ---
 
@@ -20,7 +23,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
 4. Required Python libraries installed:
 
    ```bash
-   pip install markdown PyYAML requests python-dotenv
+   pip install markdown PyYAML requests python-dotenv beautifulsoup4
    ```
 
 ---
@@ -51,7 +54,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
    USERNAME=your_username
    PASSWORD=your_password
    MARKDOWN_DIRECTORY=/path/to/markdown/files
-   MARKDOWN_PARSER=normal  # Options: normal, hugo, jekyll
+   MARKDOWN_PARSER=normal  # Options: normal, hugo, jekyll, hugo_build
    ```
 
 3. Install dependencies:
@@ -79,6 +82,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
    - Parse the YAML front matter and Markdown content.
    - Convert the content to HTML using the specified parser.
    - Create a new WordPress post using the WordPress REST API.
+   - If using Hugo build, it will crawl the build directory to extract and import posts.
 
 ---
 

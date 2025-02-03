@@ -5,6 +5,7 @@ import yaml
 import subprocess
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -15,6 +16,7 @@ PASSWORD = os.getenv("PASSWORD")
 MARKDOWN_DIRECTORY = os.getenv("MARKDOWN_DIRECTORY")
 MARKDOWN_PARSER = os.getenv("MARKDOWN_PARSER", "normal")
 EXPORT_DIRECTORY = os.getenv("EXPORT_DIRECTORY")
+DOMAIN = os.getenv("DOMAIN")
 
 def parse_markdown_file(file_path):
     """Parse metadata and content from the Markdown file."""
@@ -87,34 +89,52 @@ def post_to_wordpress(metadata, html_content):
     else:
         print(f"Failed to create post: {response.status_code} - {response.text}")
 
-def export_to_wxr(metadata, html_content, export_directory):
-    """Export the extracted data to WordPress eXtended RSS (WXR) format."""
-    slug = create_slug_from_url(metadata['url'])
-    export_path = os.path.join(export_directory, f"{slug}.xml")
+def format_date(date_str):
+    """Format date to 'Mon, 12 Jun 2023 20:40:00 +0000'."""
+    try:
+        date_obj = datetime.strptime(date_str, "%b %d, %Y %I:%M %p %Z")
+    except ValueError:
+        date_obj = datetime.strptime(date_str, "%b %d, %Y %I:%M %p %z")
+    return date_obj.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+def export_to_wxr(posts, export_directory):
+    """Export the extracted data to a single WordPress eXtended RSS (WXR) format."""
+    export_path = os.path.join(export_directory, "exported_posts.xml")
     
-    wxr_content = f"""<?xml version="1.0" encoding="UTF-8" ?>
+    wxr_content = """<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
-<channel>
-    <title>{metadata['title']}</title>
-    <link>{metadata['url']}</link>
-    <pubDate>{metadata['date']}</pubDate>
-    <wp:post_type>post</wp:post_type>
-    <wp:status>publish</wp:status>
-    <wp:post_name>{slug}</wp:post_name>
-    <wp:post_date>{metadata['date']}</wp:post_date>
-    <wp:post_date_gmt>{metadata['date']}</wp:post_date_gmt>
-    <wp:postmeta>
-        <wp:meta_key>_wp_page_template</wp:meta_key>
-        <wp:meta_value>default</wp:meta_value>
-    </wp:postmeta>
-    <content:encoded><![CDATA[{html_content}]]></content:encoded>
+<channel>"""
+    
+    for metadata, html_content in posts:
+        slug = create_slug_from_url(metadata['url'])
+        formatted_date = format_date(metadata['date'])
+        wxr_content += f"""
+    <item>
+        <title>{metadata['title']}</title>
+        <link>{DOMAIN}/{slug}/</link>
+        <pubDate>{formatted_date}</pubDate>
+        <wp:post_type>post</wp:post_type>
+        <wp:status>publish</wp:status>
+        <wp:post_name>{slug}</wp:post_name>
+        <wp:post_date>{formatted_date}</wp:post_date>
+        <wp:post_date_gmt>{formatted_date}</wp:post_date_gmt>
+        <wp:postmeta>
+            <wp:meta_key>_wp_page_template</wp:meta_key>
+            <wp:meta_value>default</wp:meta_value>
+        </wp:postmeta>
+        <category><![CDATA[{', '.join(metadata.get('categories', []))}]]></category>
+        <tag><![CDATA[{', '.join(metadata.get('tags', []))}]]></tag>
+        <content:encoded><![CDATA[{html_content}]]></content:encoded>
+    </item>"""
+    
+    wxr_content += """
 </channel>
 </rss>"""
     
     with open(export_path, "w", encoding="utf-8") as file:
         file.write(wxr_content)
     
-    print(f"Exported '{metadata['title']}' to {export_path}")
+    print(f"Exported all posts to {export_path}")
 
 def extract_tags(soup):
     """Extract tags from the BeautifulSoup object."""
@@ -137,6 +157,7 @@ def extract_categories(soup):
 
 def crawl_hugo_build(build_directory):
     """Crawl the Hugo build directory and extract post data."""
+    posts = []
     for root, dirs, files in os.walk(build_directory):
         # Limit the first level directories to those named as years
         if root == build_directory:
@@ -185,7 +206,9 @@ def crawl_hugo_build(build_directory):
                     "lang": "en",  # Default language
                 }
                 
-                export_now(metadata, html_content)
+                posts.append((metadata, html_content))
+    
+    export_now(posts)
 
 def main():
     """Main function to process Markdown files or crawl Hugo build."""
@@ -197,6 +220,7 @@ def main():
             return
         crawl_hugo_build(build_directory)
     else:
+        posts = []
         if not os.path.isdir(MARKDOWN_DIRECTORY):
             print(f"Error: Directory '{MARKDOWN_DIRECTORY}' does not exist.")
             return
@@ -209,17 +233,20 @@ def main():
                 metadata, markdown_content = parse_markdown_file(file_path)
                 html_content = convert_markdown_to_html(file_path)
                 
-                export_now(metadata, html_content)
+                posts.append((metadata, html_content))
+        
+        export_now(posts)
 
-def export_now(metadata, html_content):
+def export_now(posts):
     export_mode = os.getenv("EXPORT_MODE", "import")  # Default to 'import' mode
 
     if export_mode == "export":
         if not os.path.isdir(EXPORT_DIRECTORY):
             os.makedirs(EXPORT_DIRECTORY)
-        export_to_wxr(metadata, html_content, EXPORT_DIRECTORY)
+        export_to_wxr(posts, EXPORT_DIRECTORY)
     else:
-        post_to_wordpress(metadata, html_content)
+        for metadata, html_content in posts:
+            post_to_wordpress(metadata, html_content)
 
 if __name__ == "__main__":
     main()

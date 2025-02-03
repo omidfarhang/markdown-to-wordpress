@@ -12,6 +12,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
 - Extracts tags and categories from Hugo build HTML files.
 - Imports from Jekyll and Hugo single files.
 - Crawls Hugo build directories to extract and import posts.
+- Exports posts to WordPress eXtended RSS (WXR) format.
 
 ---
 
@@ -55,6 +56,8 @@ This project provides a Python script to import Markdown blog posts into a WordP
    PASSWORD=your_password
    MARKDOWN_DIRECTORY=/path/to/markdown/files
    MARKDOWN_PARSER=normal  # Options: normal, hugo, jekyll, hugo_build
+   EXPORT_MODE=import  # Options: import, export
+   EXPORT_DIRECTORY=/path/to/export/directory  # Required if EXPORT_MODE is 'export'
    ```
 
 3. Install dependencies:
@@ -83,6 +86,7 @@ This project provides a Python script to import Markdown blog posts into a WordP
    - Convert the content to HTML using the specified parser.
    - Create a new WordPress post using the WordPress REST API.
    - If using Hugo build, it will crawl the build directory to extract and import posts.
+   - If EXPORT_MODE is set to 'export', it will export posts to WXR format instead of posting to WordPress.
 
 ---
 

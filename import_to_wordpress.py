@@ -14,6 +14,7 @@ USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 MARKDOWN_DIRECTORY = os.getenv("MARKDOWN_DIRECTORY")
 MARKDOWN_PARSER = os.getenv("MARKDOWN_PARSER", "normal")
+EXPORT_DIRECTORY = os.getenv("EXPORT_DIRECTORY")
 
 def parse_markdown_file(file_path):
     """Parse metadata and content from the Markdown file."""
@@ -82,6 +83,35 @@ def post_to_wordpress(metadata, html_content):
     else:
         print(f"Failed to create post: {response.status_code} - {response.text}")
 
+def export_to_wxr(metadata, html_content, export_directory):
+    """Export the extracted data to WordPress eXtended RSS (WXR) format."""
+    slug = create_slug_from_url(metadata['url'])
+    export_path = os.path.join(export_directory, f"{slug}.xml")
+    
+    wxr_content = f"""<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+    <title>{metadata['title']}</title>
+    <link>{metadata['url']}</link>
+    <pubDate>{metadata['date']}</pubDate>
+    <wp:post_type>post</wp:post_type>
+    <wp:status>publish</wp:status>
+    <wp:post_name>{slug}</wp:post_name>
+    <wp:post_date>{metadata['date']}</wp:post_date>
+    <wp:post_date_gmt>{metadata['date']}</wp:post_date_gmt>
+    <wp:postmeta>
+        <wp:meta_key>_wp_page_template</wp:meta_key>
+        <wp:meta_value>default</wp:meta_value>
+    </wp:postmeta>
+    <content:encoded><![CDATA[{html_content}]]></content:encoded>
+</channel>
+</rss>"""
+    
+    with open(export_path, "w", encoding="utf-8") as file:
+        file.write(wxr_content)
+    
+    print(f"Exported '{metadata['title']}' to {export_path}")
+
 def extract_tags(soup):
     """Extract tags from the BeautifulSoup object."""
     tags = []
@@ -141,6 +171,8 @@ def crawl_hugo_build(build_directory):
 
 def main():
     """Main function to process Markdown files or crawl Hugo build."""
+    export_mode = os.getenv("EXPORT_MODE", "import")  # Default to 'import' mode
+    
     if MARKDOWN_PARSER == "hugo_build":
         build_directory = os.getenv("HUGO_BUILD_DIRECTORY")
         if not os.path.isdir(build_directory):
@@ -159,7 +191,13 @@ def main():
                 
                 metadata, markdown_content = parse_markdown_file(file_path)
                 html_content = convert_markdown_to_html(file_path)
-                post_to_wordpress(metadata, html_content)
+                
+                if export_mode == "export":
+                    if not os.path.isdir(EXPORT_DIRECTORY):
+                        os.makedirs(EXPORT_DIRECTORY)
+                    export_to_wxr(metadata, html_content, EXPORT_DIRECTORY)
+                else:
+                    post_to_wordpress(metadata, html_content)
 
 if __name__ == "__main__":
     main()

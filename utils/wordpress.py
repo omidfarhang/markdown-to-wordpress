@@ -49,7 +49,7 @@ def format_date(date_str):
         date_obj = datetime.strptime(date_str, "%b %d, %Y %I:%M %p %Z")
     except ValueError:
         date_obj = datetime.strptime(date_str, "%b %d, %Y %I:%M %p %z")
-    return date_obj.strftime("%a, %d %b %Y %H:%M:%S +0000")
+    return date_obj.strftime("%Y-%m-%d %H:%M:%S")
 
 def export_to_wxr(posts, export_directory):
     """Export the extracted data to a single WordPress eXtended RSS (WXR) format."""
@@ -57,28 +57,51 @@ def export_to_wxr(posts, export_directory):
     
     wxr_content = """<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
-<channel>"""
+<channel>
+    <wp:wxr_version>1.2</wp:wxr_version>"""  # Added WXR version number
     
     for metadata, html_content in posts:
         slug = create_slug_from_url(metadata['url'])
         formatted_date = format_date(metadata['date'])
+        formatted_date_gmt = format_date(metadata['date'])  # Assuming the input date is in GMT
         wxr_content += f"""
     <item>
         <title>{metadata['title']}</title>
         <link>{DOMAIN}/{slug}/</link>
         <pubDate>{formatted_date}</pubDate>
-        <wp:post_type>post</wp:post_type>
-        <wp:status>publish</wp:status>
+        <dc:creator>{USERNAME}</dc:creator>
+        <guid isPermaLink="false">{DOMAIN}/{slug}/</guid>
+        <description></description>
+        <content:encoded><![CDATA[{html_content}]]></content:encoded>
+        <excerpt:encoded><![CDATA[{metadata.get('excerpt', '')}]]></excerpt:encoded>
+        <wp:post_id>{metadata.get('post_id', '')}</wp:post_id>
+        <wp:post_date><![CDATA[{formatted_date}]]></wp:post_date>
+        <wp:post_date_gmt><![CDATA[{formatted_date_gmt}]]></wp:post_date_gmt>
+        <wp:post_modified><![CDATA[{formatted_date}]]></wp:post_modified>
+        <wp:post_modified_gmt><![CDATA[{formatted_date_gmt}]]></wp:post_modified_gmt>
+        <wp:comment_status>closed</wp:comment_status>
+        <wp:ping_status>closed</wp:ping_status>
         <wp:post_name>{slug}</wp:post_name>
-        <wp:post_date>{formatted_date}</wp:post_date>
-        <wp:post_date_gmt>{formatted_date}</wp:post_date_gmt>
+        <wp:status>publish</wp:status>
+        <wp:post_parent>0</wp:post_parent>
+        <wp:menu_order>0</wp:menu_order>
+        <wp:post_type>post</wp:post_type>
+        <wp:post_password></wp:post_password>
+        <wp:is_sticky>0</wp:is_sticky>"""
+        
+        for category in metadata.get('categories', []):
+            wxr_content += f"""
+        <category domain="category" nicename="{category.lower().replace(' ', '-')}"><![CDATA[{category}]]></category>"""
+        
+        for tag in metadata.get('tags', []):
+            wxr_content += f"""
+        <category domain="post_tag" nicename="{tag.lower().replace(' ', '-')}"><![CDATA[{tag}]]></category>"""
+        
+        wxr_content += """
         <wp:postmeta>
             <wp:meta_key>_wp_page_template</wp:meta_key>
             <wp:meta_value>default</wp:meta_value>
         </wp:postmeta>
-        <category><![CDATA[{', '.join(metadata.get('categories', []))}]]></category>
-        <tag><![CDATA[{', '.join(metadata.get('tags', []))}]]></tag>
-        <content:encoded><![CDATA[{html_content}]]></content:encoded>
     </item>"""
     
     wxr_content += """

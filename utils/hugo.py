@@ -28,7 +28,7 @@ def crawl_hugo_build(build_directory):
     for root, dirs, files in os.walk(build_directory):
         # Limit the first level directories to those named as years
         if root == build_directory:
-            dirs[:] = [d for d in dirs if (d.isdigit() and len(d) == 4) or d == 'fa']
+            dirs[:] = [d for d in dirs if (d.isdigit() and len(d) == 4)]
         if "index.html" in files:
             file_path = os.path.join(root, "index.html")
             with open(file_path, "r", encoding="utf-8") as file:

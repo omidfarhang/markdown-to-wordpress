@@ -1,0 +1,26 @@
+[wordpress]
+url = "https://example.com/wp-json/wp/v2"
+username = "admin"
+# password via env: MD2WP_WORDPRESS_PASSWORD
+
+[import]
+mode = "markdown"
+source = "./content/posts"
+status = "draft"
+recursive = true
+include_drafts = false
+
+[site]
+title = "My Site"
+description = "Posts imported by md2wp"
+language = "en"
+domain = "https://example.com"
+
+[hugo_build]
+title_selector = "h1.post-title"
+date_selector = "div.post-meta span[title]"
+content_selector = "div.post-content"
+tags_selector = "ul.post-tags a"
+categories_selector = "div.breadcrumbs a"
+category_breadcrumb_index = 2
+filter_year_dirs = true

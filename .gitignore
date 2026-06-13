@@ -1,9 +1,16 @@
 # Python
 venv/
+.venv/
+.venv2/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
 
 # Environment
 .env
@@ -13,3 +20,4 @@ __pycache__/
 .vscode/
 .DS_Store
 export/
+*.xml

@@ -6,7 +6,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11
+    import tomli as tomllib
+
 from dotenv import load_dotenv
 
 

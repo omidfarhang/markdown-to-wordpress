@@ -31,6 +31,20 @@ Preview what would be imported:
 md2wp import --source ./content/posts --dry-run
 ```
 
+## Optional image planning workflow
+
+md2wp focuses on importing prepared Markdown or Hugo output into WordPress.
+If your editorial workflow also needs to decide which images belong under each
+heading, review alt text and captions, preserve image attribution, or prepare a
+WordPress/Gutenberg placement plan before import, use a separate pre-publish
+image planning step.
+
+[Pictovap](https://github.com/yoldaolmak/Pictovap) is one compatible
+CLI-first option for that boundary: Markdown article → visual brief → candidate
+scoring → provenance pack → editor report → CMS placement plan. Keep md2wp as
+the import/publish layer and run image planning before the final WordPress
+handoff.
+
 ## WordPress setup
 
 1. Ensure the WordPress REST API is enabled (default on modern WordPress).

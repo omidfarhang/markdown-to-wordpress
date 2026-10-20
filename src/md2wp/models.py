@@ -15,6 +15,7 @@ class PostMetadata:
     tags: list[str] = field(default_factory=list)
     categories: list[str] = field(default_factory=list)
     lang: str = "en"
+    translation_key: str = ""
     excerpt: str = ""
     shortlink: str = ""
     draft: bool = False

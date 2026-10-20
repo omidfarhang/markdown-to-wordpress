@@ -74,6 +74,16 @@ def detect_lang(path: Path, metadata: dict[str, Any]) -> str:
     return "en"
 
 
+def detect_translation_key(path: Path, metadata: dict[str, Any]) -> str:
+    for key in ("translation_key", "translation_of", "translations_key"):
+        value = metadata.get(key)
+        if value:
+            return str(value).strip()
+    if LANG_SUFFIX_RE.search(path.name):
+        return slug_from_path(path)
+    return ""
+
+
 def should_skip_file(path: Path, metadata: dict[str, Any], settings: Settings) -> str | None:
     if path.name == "_index.md":
         return "index file"
@@ -133,6 +143,9 @@ def parse_markdown_file(path: Path, settings: Settings) -> Post | None:
         "tags",
         "categories",
         "lang",
+        "translation_key",
+        "translation_of",
+        "translations_key",
         "excerpt",
         "shortlink",
         "draft",
@@ -149,6 +162,7 @@ def parse_markdown_file(path: Path, settings: Settings) -> Post | None:
             tags=[str(t) for t in tags],
             categories=[str(c) for c in categories],
             lang=detect_lang(path, metadata),
+            translation_key=detect_translation_key(path, metadata),
             excerpt=str(metadata.get("excerpt", "")),
             shortlink=str(metadata.get("shortlink", "")),
             draft=bool(metadata.get("draft", False)),

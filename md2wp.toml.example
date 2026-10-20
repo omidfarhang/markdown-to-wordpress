@@ -6,9 +6,14 @@ username = "admin"
 [import]
 mode = "markdown"
 source = "./content/posts"
+# output = "./export/posts.xml"  # WXR export path (or MD2WP_EXPORT_OUTPUT)
 status = "draft"
 recursive = true
 include_drafts = false
+
+[markdown]
+# Python-Markdown extensions (defaults shown)
+extensions = ["fenced_code", "tables", "nl2br"]
 
 [site]
 title = "My Site"

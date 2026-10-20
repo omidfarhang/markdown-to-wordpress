@@ -112,9 +112,12 @@ See [`md2wp.toml.example`](md2wp.toml.example) for Hugo selector customization.
 | `MD2WP_SOURCE` | Input directory |
 | `MD2WP_MODE` | `markdown` or `hugo-build` |
 | `MD2WP_STATUS` | `draft`, `publish`, or `private` |
+| `MD2WP_EXPORT_OUTPUT` | WXR export file path |
 | `DOMAIN` | Site URL for WXR export links |
 
-Legacy variables (`WORDPRESS_URL`, `MARKDOWN_DIRECTORY`, `MARKDOWN_PARSER`, etc.) are still supported.
+Legacy variables (`WORDPRESS_URL`, `MARKDOWN_DIRECTORY`, `MARKDOWN_PARSER`, `EXPORT_DIRECTORY`, etc.) are still supported.
+
+Markdown Python-Markdown extensions are configured in `md2wp.toml` under `[markdown].extensions` (defaults: `fenced_code`, `tables`, `nl2br`).
 
 ## Markdown format
 

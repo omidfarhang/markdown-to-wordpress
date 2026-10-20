@@ -36,6 +36,9 @@ class HugoBuildSelectors:
     filter_year_dirs: bool = True
 
 
+DEFAULT_MARKDOWN_EXTENSIONS = ["fenced_code", "tables", "nl2br"]
+
+
 @dataclass
 class Settings:
     mode: ImportMode = ImportMode.MARKDOWN
@@ -60,7 +63,7 @@ class Settings:
     hugo_build: HugoBuildSelectors = field(default_factory=HugoBuildSelectors)
 
     markdown_extensions: list[str] = field(
-        default_factory=lambda: ["fenced_code", "tables", "nl2br"]
+        default_factory=lambda: list(DEFAULT_MARKDOWN_EXTENSIONS)
     )
 
 
@@ -106,6 +109,7 @@ def load_settings(
     imp = toml_data.get("import", {})
     site = toml_data.get("site", {})
     hb = toml_data.get("hugo_build", {})
+    md = toml_data.get("markdown", {})
 
     def pick(cli_val, toml_val, env_val, default):
         if cli_val is not None:
@@ -135,6 +139,13 @@ def load_settings(
         "",
     )
 
+    output_str = pick(
+        str(output) if output else None,
+        imp.get("output"),
+        _legacy_env("EXPORT_DIRECTORY", "MD2WP_EXPORT_OUTPUT"),
+        "",
+    )
+
     status_str = pick(
         status.value if status else None,
         imp.get("status"),
@@ -142,14 +153,16 @@ def load_settings(
         PostStatus.DRAFT.value,
     )
 
+    toml_extensions = md.get("extensions")
+    if isinstance(toml_extensions, list) and toml_extensions:
+        markdown_extensions = [str(ext) for ext in toml_extensions]
+    else:
+        markdown_extensions = list(DEFAULT_MARKDOWN_EXTENSIONS)
+
     settings = Settings(
         mode=ImportMode(mode_str),
         source=Path(source_str).expanduser() if source_str else None,
-        output=Path(output).expanduser()
-        if output
-        else Path(imp.get("output", _env("EXPORT_DIRECTORY", ""))).expanduser()
-        if (output or imp.get("output") or _env("EXPORT_DIRECTORY"))
-        else None,
+        output=Path(output_str).expanduser() if output_str else None,
         domain=pick(domain, imp.get("domain") or site.get("domain"), _env("DOMAIN"), ""),
         status=PostStatus(status_str),
         recursive=pick(recursive, imp.get("recursive"), None, True),
@@ -191,6 +204,7 @@ def load_settings(
             ),
             filter_year_dirs=hb.get("filter_year_dirs", True),
         ),
+        markdown_extensions=markdown_extensions,
     )
 
     return settings

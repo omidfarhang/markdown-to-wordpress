@@ -1,5 +1,0 @@
-markdown
-PyYAML
-requests
-python-dotenv
-beautifulsoup4

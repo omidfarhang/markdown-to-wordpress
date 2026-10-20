@@ -256,8 +256,6 @@ Missing local files log a warning and leave the original `src` unchanged.
 | `EXPORT_MODE=export` | `md2wp export` |
 | `MARKDOWN_DIRECTORY` | `--source` |
 
-The old entry point still works but prints a deprecation warning.
-
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, binaries, and release steps.

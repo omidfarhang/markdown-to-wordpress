@@ -3,6 +3,13 @@ url = "https://example.com/wp-json/wp/v2"
 username = "admin"
 # password via env: MD2WP_WORDPRESS_PASSWORD
 
+[wordpress.i18n]
+# none | polylang | wpml  (env: MD2WP_I18N_PROVIDER)
+provider = "none"
+# Link language variants after publish (requires provider != none)
+# env: MD2WP_I18N_LINK_TRANSLATIONS
+link_translations = false
+
 [import]
 mode = "markdown"
 source = "./content/posts"

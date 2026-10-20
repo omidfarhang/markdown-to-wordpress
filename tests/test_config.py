@@ -2,6 +2,7 @@ from pathlib import Path
 
 from md2wp.config import (
     DEFAULT_MARKDOWN_EXTENSIONS,
+    I18nProvider,
     ImportMode,
     PostStatus,
     load_settings,
@@ -177,3 +178,57 @@ def test_markdown_extensions_defaults_when_unset(tmp_path):
     settings = load_settings(config_path=config)
 
     assert settings.markdown_extensions == DEFAULT_MARKDOWN_EXTENSIONS
+
+
+def test_i18n_defaults_when_unset(tmp_path, monkeypatch):
+    config = tmp_path / "md2wp.toml"
+    config.write_text("[wordpress]\n", encoding="utf-8")
+    monkeypatch.delenv("MD2WP_I18N_PROVIDER", raising=False)
+    monkeypatch.delenv("MD2WP_I18N_LINK_TRANSLATIONS", raising=False)
+
+    settings = load_settings(config_path=config)
+
+    assert settings.wordpress_i18n.provider == I18nProvider.NONE
+    assert settings.wordpress_i18n.link_translations is False
+
+
+def test_i18n_from_toml(tmp_path, monkeypatch):
+    config = tmp_path / "md2wp.toml"
+    config.write_text(
+        '[wordpress.i18n]\nprovider = "polylang"\nlink_translations = true\n',
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("MD2WP_I18N_PROVIDER", raising=False)
+    monkeypatch.delenv("MD2WP_I18N_LINK_TRANSLATIONS", raising=False)
+
+    settings = load_settings(config_path=config)
+
+    assert settings.wordpress_i18n.provider == I18nProvider.POLYLANG
+    assert settings.wordpress_i18n.link_translations is True
+
+
+def test_i18n_toml_overrides_env(tmp_path, monkeypatch):
+    config = tmp_path / "md2wp.toml"
+    config.write_text(
+        '[wordpress.i18n]\nprovider = "wpml"\nlink_translations = false\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MD2WP_I18N_PROVIDER", "polylang")
+    monkeypatch.setenv("MD2WP_I18N_LINK_TRANSLATIONS", "true")
+
+    settings = load_settings(config_path=config)
+
+    assert settings.wordpress_i18n.provider == I18nProvider.WPML
+    assert settings.wordpress_i18n.link_translations is False
+
+
+def test_i18n_from_env_when_toml_unset(tmp_path, monkeypatch):
+    config = tmp_path / "md2wp.toml"
+    config.write_text("[wordpress]\n", encoding="utf-8")
+    monkeypatch.setenv("MD2WP_I18N_PROVIDER", "polylang")
+    monkeypatch.setenv("MD2WP_I18N_LINK_TRANSLATIONS", "1")
+
+    settings = load_settings(config_path=config)
+
+    assert settings.wordpress_i18n.provider == I18nProvider.POLYLANG
+    assert settings.wordpress_i18n.link_translations is True

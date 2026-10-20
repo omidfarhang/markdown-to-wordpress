@@ -25,6 +25,18 @@ class PostStatus(str, Enum):
     PRIVATE = "private"
 
 
+class I18nProvider(str, Enum):
+    NONE = "none"
+    POLYLANG = "polylang"
+    WPML = "wpml"
+
+
+@dataclass
+class WordPressI18nSettings:
+    provider: I18nProvider = I18nProvider.NONE
+    link_translations: bool = False
+
+
 @dataclass
 class HugoBuildSelectors:
     title_selector: str = "h1.post-title"
@@ -55,6 +67,7 @@ class Settings:
     wordpress_url: str = ""
     wordpress_username: str = ""
     wordpress_password: str = ""
+    wordpress_i18n: WordPressI18nSettings = field(default_factory=WordPressI18nSettings)
 
     site_title: str = "Imported Site"
     site_description: str = "Posts imported by md2wp"
@@ -82,6 +95,13 @@ def _legacy_env(key: str, new_key: str, default: str = "") -> str:
     return _env(new_key) or _env(key, default)
 
 
+def _env_bool(key: str) -> bool | None:
+    raw = os.getenv(key)
+    if raw is None or raw == "":
+        return None
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
 def load_settings(
     *,
     config_path: Path | None = None,
@@ -106,6 +126,9 @@ def load_settings(
 
     toml_data = _load_toml(resolved_config) if resolved_config else {}
     wp = toml_data.get("wordpress", {})
+    wp_i18n = wp.get("i18n", {}) if isinstance(wp, dict) else {}
+    if not isinstance(wp_i18n, dict):
+        wp_i18n = {}
     imp = toml_data.get("import", {})
     site = toml_data.get("site", {})
     hb = toml_data.get("hugo_build", {})
@@ -188,6 +211,22 @@ def load_settings(
             _legacy_env("PASSWORD", "MD2WP_WORDPRESS_PASSWORD"),
             "",
         ),
+        wordpress_i18n=WordPressI18nSettings(
+            provider=I18nProvider(
+                pick(
+                    None,
+                    wp_i18n.get("provider"),
+                    _env("MD2WP_I18N_PROVIDER"),
+                    I18nProvider.NONE.value,
+                )
+            ),
+            link_translations=pick(
+                None,
+                wp_i18n.get("link_translations"),
+                _env_bool("MD2WP_I18N_LINK_TRANSLATIONS"),
+                False,
+            ),
+        ),
         site_title=site.get("title", "Imported Site"),
         site_description=site.get("description", "Posts imported by md2wp"),
         site_language=site.get("language", "en"),
@@ -224,6 +263,10 @@ def settings_as_dict(settings: Settings) -> dict[str, Any]:
         "wordpress_url": settings.wordpress_url or None,
         "wordpress_username": settings.wordpress_username or None,
         "wordpress_password": "***" if settings.wordpress_password else None,
+        "wordpress_i18n": {
+            "provider": settings.wordpress_i18n.provider.value,
+            "link_translations": settings.wordpress_i18n.link_translations,
+        },
         "site_title": settings.site_title,
         "hugo_build": {
             "title_selector": settings.hugo_build.title_selector,

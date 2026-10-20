@@ -6,6 +6,7 @@ Import Markdown or Hugo build output into WordPress via the REST API or WXR expo
 
 - Parse Markdown files with YAML front matter (recursive scan)
 - Crawl Hugo build output with configurable CSS selectors
+- Wrap fenced code as Gutenberg `wp:code` blocks (with `language-*` classes)
 - Publish to WordPress with tag/category resolution and slug upsert
 - Optional Polylang Pro / WPML language assignment via REST (plus always-written `lang` postmeta)
 - Upload local images and set featured media via the REST API
@@ -189,11 +190,34 @@ WXR export does not emit Polylang/WPML taxonomies or translation links.
 | `MD2WP_MODE` | `markdown` or `hugo-build` |
 | `MD2WP_STATUS` | `draft`, `publish`, or `private` |
 | `MD2WP_EXPORT_OUTPUT` | WXR export file path |
+| `MD2WP_CODE_BLOCKS` | `gutenberg` (default) or `classic` — see Code blocks |
 | `DOMAIN` | Site URL for WXR export links |
 
 Legacy variables (`WORDPRESS_URL`, `MARKDOWN_DIRECTORY`, `MARKDOWN_PARSER`, `EXPORT_DIRECTORY`, etc.) are still supported.
 
 Markdown Python-Markdown extensions are configured in `md2wp.toml` under `[markdown].extensions` (defaults: `fenced_code`, `tables`, `nl2br`).
+
+### Code blocks
+
+By default, fenced `<pre><code>` (Markdown and Hugo-build HTML) are rewritten as
+Gutenberg Code blocks so the block editor recognizes them, while keeping
+highlighter-friendly `language-*` classes (and a `language` attribute on the
+block comment when known):
+
+```html
+<!-- wp:code {"language":"python"} -->
+<pre class="wp-block-code"><code class="language-python">print("hello")</code></pre>
+<!-- /wp:code -->
+```
+
+Opt out to keep classic HTML:
+
+```toml
+[content]
+code_blocks = "classic"
+```
+
+Or set `MD2WP_CODE_BLOCKS=classic`.
 
 ## Markdown format
 

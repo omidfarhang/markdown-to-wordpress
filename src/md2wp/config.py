@@ -31,6 +31,11 @@ class I18nProvider(str, Enum):
     WPML = "wpml"
 
 
+class CodeBlocksFormat(str, Enum):
+    GUTENBERG = "gutenberg"
+    CLASSIC = "classic"
+
+
 @dataclass
 class WordPressI18nSettings:
     provider: I18nProvider = I18nProvider.NONE
@@ -78,6 +83,7 @@ class Settings:
     markdown_extensions: list[str] = field(
         default_factory=lambda: list(DEFAULT_MARKDOWN_EXTENSIONS)
     )
+    code_blocks: CodeBlocksFormat = CodeBlocksFormat.GUTENBERG
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -133,6 +139,9 @@ def load_settings(
     site = toml_data.get("site", {})
     hb = toml_data.get("hugo_build", {})
     md = toml_data.get("markdown", {})
+    content = toml_data.get("content", {})
+    if not isinstance(content, dict):
+        content = {}
 
     def pick(cli_val, toml_val, env_val, default):
         if cli_val is not None:
@@ -181,6 +190,13 @@ def load_settings(
         markdown_extensions = [str(ext) for ext in toml_extensions]
     else:
         markdown_extensions = list(DEFAULT_MARKDOWN_EXTENSIONS)
+
+    code_blocks_str = pick(
+        None,
+        content.get("code_blocks"),
+        _env("MD2WP_CODE_BLOCKS"),
+        CodeBlocksFormat.GUTENBERG.value,
+    )
 
     settings = Settings(
         mode=ImportMode(mode_str),
@@ -244,6 +260,7 @@ def load_settings(
             filter_year_dirs=hb.get("filter_year_dirs", True),
         ),
         markdown_extensions=markdown_extensions,
+        code_blocks=CodeBlocksFormat(str(code_blocks_str).strip().lower()),
     )
 
     return settings
@@ -268,6 +285,7 @@ def settings_as_dict(settings: Settings) -> dict[str, Any]:
             "link_translations": settings.wordpress_i18n.link_translations,
         },
         "site_title": settings.site_title,
+        "code_blocks": settings.code_blocks.value,
         "hugo_build": {
             "title_selector": settings.hugo_build.title_selector,
             "date_selector": settings.hugo_build.date_selector,

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from md2wp.config import ImportMode, Settings
+from md2wp.config import CodeBlocksFormat, ImportMode, Settings
+from md2wp.content import wrap_code_blocks
 from md2wp.logging import get_logger
-from md2wp.models import ImportResult
+from md2wp.models import ImportResult, Post
 from md2wp.parsers.hugo_build import discover_and_parse_hugo_build
 from md2wp.parsers.markdown import discover_and_parse_markdown
 from md2wp.sinks.wordpress import publish_to_wordpress
@@ -18,6 +19,13 @@ def _ensure_source(settings: Settings) -> None:
         raise ValueError(f"Source directory does not exist: {settings.source}")
 
 
+def _apply_content_transforms(posts: list[Post], settings: Settings) -> None:
+    if settings.code_blocks != CodeBlocksFormat.GUTENBERG:
+        return
+    for post in posts:
+        post.html_content = wrap_code_blocks(post.html_content)
+
+
 def discover_and_parse(settings: Settings) -> ImportResult:
     _ensure_source(settings)
 
@@ -25,6 +33,8 @@ def discover_and_parse(settings: Settings) -> ImportResult:
         posts, errors, skipped = discover_and_parse_hugo_build(settings.source, settings)
     else:
         posts, errors, skipped = discover_and_parse_markdown(settings.source, settings)
+
+    _apply_content_transforms(posts, settings)
 
     logger.info(
         "Discovered %d posts (%d errors, %d skipped)",

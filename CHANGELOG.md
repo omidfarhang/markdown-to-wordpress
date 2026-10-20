@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Gutenberg `wp:code` wrapping for fenced code blocks (default), with preserved `language-*` classes and a `language` block attribute when detected
+- `[content] code_blocks` / `MD2WP_CODE_BLOCKS` (`gutenberg` | `classic`) to opt out of wrapping
+
 ## [0.3.2] - 2026-10-20
 
 ### Removed

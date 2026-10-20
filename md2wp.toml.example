@@ -22,6 +22,11 @@ include_drafts = false
 # Python-Markdown extensions (defaults shown)
 extensions = ["fenced_code", "tables", "nl2br"]
 
+[content]
+# Wrap fenced <pre><code> as Gutenberg wp:code blocks (gutenberg | classic)
+# env: MD2WP_CODE_BLOCKS
+code_blocks = "gutenberg"
+
 [site]
 title = "My Site"
 description = "Posts imported by md2wp"

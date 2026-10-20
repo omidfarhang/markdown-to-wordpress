@@ -85,6 +85,10 @@ items. WordPress import still needs those files reachable at those URLs (or a
 follow-up media sync)—copy files into the matching uploads path before or after
 import if needed.
 
+Post dates: timezone-aware values keep their wall-clock time in
+`wp:post_date` / `wp:post_modified` and convert to UTC for `*_gmt` and RFC 822
+`pubDate`. Naive datetimes are treated as UTC.
+
 ### Validate
 
 ```bash

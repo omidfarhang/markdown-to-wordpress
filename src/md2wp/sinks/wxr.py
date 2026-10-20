@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import timezone
+from datetime import datetime, timezone
+from email.utils import format_datetime
 from pathlib import Path
 from urllib.parse import quote
 from xml.sax.saxutils import escape
@@ -13,11 +14,25 @@ from md2wp.models import ImportResult, Post
 
 logger = get_logger(__name__)
 
+_WXR_DT = "%Y-%m-%d %H:%M:%S"
 
-def _format_wxr_datetime(value) -> str:
+
+def _wxr_datetimes(value: datetime) -> tuple[str, str, str]:
+    """
+    Return (post_date local, post_date_gmt, pubDate RFC 822).
+
+    Naive datetimes are treated as UTC. Aware datetimes keep their wall-clock
+    time for ``post_date`` / ``post_modified``; GMT fields use
+    ``.astimezone(UTC)`` wall time. ``pubDate`` is RFC 822 in GMT.
+    """
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
-    return value.strftime("%Y-%m-%d %H:%M:%S")
+    utc = value.astimezone(timezone.utc)
+    return (
+        value.strftime(_WXR_DT),
+        utc.strftime(_WXR_DT),
+        format_datetime(utc, usegmt=True),
+    )
 
 
 def _stable_post_id(slug: str) -> int:
@@ -53,7 +68,9 @@ def _emit_attachment(
     url: str,
     creator: str,
     parent_id: int,
-    date_str: str,
+    local_date: str,
+    gmt_date: str,
+    pub_date: str,
 ) -> None:
     title = path.stem
     lines.extend(
@@ -61,17 +78,17 @@ def _emit_attachment(
             "    <item>",
             f"        <title>{escape(title)}</title>",
             f"        <link>{escape(url)}</link>",
-            f"        <pubDate>{escape(date_str)}</pubDate>",
+            f"        <pubDate>{escape(pub_date)}</pubDate>",
             f"        <dc:creator>{escape(creator)}</dc:creator>",
             f'        <guid isPermaLink="false">{escape(url)}</guid>',
             "        <description></description>",
             "        <content:encoded><![CDATA[]]></content:encoded>",
             "        <excerpt:encoded><![CDATA[]]></excerpt:encoded>",
             f"        <wp:post_id>{attachment_id}</wp:post_id>",
-            f"        <wp:post_date><![CDATA[{date_str}]]></wp:post_date>",
-            f"        <wp:post_date_gmt><![CDATA[{date_str}]]></wp:post_date_gmt>",
-            f"        <wp:post_modified><![CDATA[{date_str}]]></wp:post_modified>",
-            f"        <wp:post_modified_gmt><![CDATA[{date_str}]]></wp:post_modified_gmt>",
+            f"        <wp:post_date><![CDATA[{local_date}]]></wp:post_date>",
+            f"        <wp:post_date_gmt><![CDATA[{gmt_date}]]></wp:post_date_gmt>",
+            f"        <wp:post_modified><![CDATA[{local_date}]]></wp:post_modified>",
+            f"        <wp:post_modified_gmt><![CDATA[{gmt_date}]]></wp:post_modified_gmt>",
             "        <wp:comment_status>closed</wp:comment_status>",
             "        <wp:ping_status>closed</wp:ping_status>",
             f"        <wp:post_name>{escape(path.stem)}</wp:post_name>",
@@ -158,7 +175,7 @@ def export_to_wxr(posts: list[Post], settings: Settings) -> ImportResult:
     for post in posts:
         slug = post.metadata.slug
         post_id = _stable_post_id(slug)
-        formatted_date = _format_wxr_datetime(post.metadata.date)
+        local_date, gmt_date, pub_date = _wxr_datetimes(post.metadata.date)
         link = f"{domain}/{slug}/"
         html_content, attachments, featured_id = _prepare_post_media(post, domain)
 
@@ -167,18 +184,18 @@ def export_to_wxr(posts: list[Post], settings: Settings) -> ImportResult:
                 "    <item>",
                 f"        <title>{escape(post.metadata.title)}</title>",
                 f"        <link>{escape(link)}</link>",
-                f"        <pubDate>{escape(formatted_date)}</pubDate>",
+                f"        <pubDate>{escape(pub_date)}</pubDate>",
                 f"        <dc:creator>{escape(creator)}</dc:creator>",
                 f'        <guid isPermaLink="false">{escape(link)}</guid>',
                 "        <description></description>",
                 f"        <content:encoded><![CDATA[{html_content}]]></content:encoded>",
                 f"        <excerpt:encoded><![CDATA[{post.metadata.excerpt}]]></excerpt:encoded>",
                 f"        <wp:post_id>{post_id}</wp:post_id>",
-                f"        <wp:post_date><![CDATA[{formatted_date}]]></wp:post_date>",
-                f"        <wp:post_date_gmt><![CDATA[{formatted_date}]]></wp:post_date_gmt>",
-                f"        <wp:post_modified><![CDATA[{formatted_date}]]></wp:post_modified>",
+                f"        <wp:post_date><![CDATA[{local_date}]]></wp:post_date>",
+                f"        <wp:post_date_gmt><![CDATA[{gmt_date}]]></wp:post_date_gmt>",
+                f"        <wp:post_modified><![CDATA[{local_date}]]></wp:post_modified>",
                 f"        <wp:post_modified_gmt>"
-                f"<![CDATA[{formatted_date}]]></wp:post_modified_gmt>",
+                f"<![CDATA[{gmt_date}]]></wp:post_modified_gmt>",
                 "        <wp:comment_status>closed</wp:comment_status>",
                 "        <wp:ping_status>closed</wp:ping_status>",
                 f"        <wp:post_name>{escape(slug)}</wp:post_name>",
@@ -218,7 +235,9 @@ def export_to_wxr(posts: list[Post], settings: Settings) -> ImportResult:
                 url=url,
                 creator=creator,
                 parent_id=post_id,
-                date_str=formatted_date,
+                local_date=local_date,
+                gmt_date=gmt_date,
+                pub_date=pub_date,
             )
 
     lines.extend(["</channel>", "</rss>"])

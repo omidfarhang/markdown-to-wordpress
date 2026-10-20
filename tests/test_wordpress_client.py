@@ -9,28 +9,42 @@ from md2wp.sinks.wordpress import WordPressClient, publish_to_wordpress
 FIXTURES = Path(__file__).parent / "fixtures" / "media-post"
 
 
-def _sample_post(slug: str = "my-post", lang: str = "en") -> Post:
+def _sample_post(
+    slug: str = "my-post",
+    lang: str = "en",
+    *,
+    translation_key: str = "",
+    title: str = "Test Post",
+) -> Post:
     return Post(
         metadata=PostMetadata(
-            title="Test Post",
+            title=title,
             date=datetime(2024, 8, 13, 16, 42, 19),
             slug=slug,
             tags=["Go"],
             categories=["TechBlog"],
             lang=lang,
+            translation_key=translation_key,
             shortlink="https://example.com/s/abc",
         ),
         html_content="<p>Hello</p>",
     )
 
 
-def _wp_settings(*, provider: I18nProvider = I18nProvider.NONE) -> Settings:
+def _wp_settings(
+    *,
+    provider: I18nProvider = I18nProvider.NONE,
+    link_translations: bool = False,
+) -> Settings:
     return Settings(
         wordpress_url="https://example.com/wp-json/wp/v2",
         wordpress_username="admin",
         wordpress_password="secret",
         status=PostStatus.DRAFT,
-        wordpress_i18n=WordPressI18nSettings(provider=provider),
+        wordpress_i18n=WordPressI18nSettings(
+            provider=provider,
+            link_translations=link_translations,
+        ),
     )
 
 
@@ -407,3 +421,108 @@ def test_probe_polylang_skipped_when_provider_none(mocker):
     mock_get = mocker.patch("md2wp.sinks.wordpress.requests.get")
     client.probe_i18n_provider()
     mock_get.assert_not_called()
+
+
+def test_polylang_link_translations_pass_sends_translations_params(mocker):
+    settings = _wp_settings(provider=I18nProvider.POLYLANG, link_translations=True)
+    client = WordPressClient(settings)
+    link_calls: list[tuple[str, dict]] = []
+    next_id = {"n": 100}
+
+    def fake_request(method, path, **kwargs):
+        key = path.split("?")[0]
+        params = dict(kwargs.get("params") or {})
+        if method == "GET" and key == "/posts":
+            return MagicMock(status_code=200, json=lambda: [])
+        if method == "POST" and key == "/posts":
+            pid = next_id["n"]
+            next_id["n"] += 1
+            return MagicMock(status_code=201, json=lambda pid=pid: {"id": pid})
+        if method == "POST" and key.startswith("/posts/") and "/meta" not in key:
+            link_calls.append((key, params))
+            return MagicMock(status_code=200, json=lambda: {})
+        if method == "GET" and key in ("/tags", "/categories"):
+            return MagicMock(status_code=200, json=lambda: [])
+        if method == "POST" and key in ("/tags", "/categories"):
+            return MagicMock(status_code=201, json=lambda: {"id": 1})
+        return MagicMock(status_code=200, json=lambda: {})
+
+    mocker.patch.object(client, "_request", side_effect=fake_request)
+    mocker.patch.object(client, "_ensure_auth")
+    mocker.patch.object(client, "probe_i18n_provider")
+    mocker.patch("md2wp.sinks.wordpress.WordPressClient", return_value=client)
+
+    posts = [
+        _sample_post(slug="hello", lang="en", translation_key="hello", title="Hello EN"),
+        _sample_post(slug="hello", lang="fr", translation_key="hello", title="Hello FR"),
+    ]
+    result = publish_to_wordpress(posts, settings)
+    assert result.published == 2
+    assert result.failed == 0
+
+    assert len(link_calls) == 2
+    by_path = {path: params for path, params in link_calls}
+    assert by_path["/posts/100"]["lang"] == "en"
+    assert by_path["/posts/100"]["translations[en]"] == 100
+    assert by_path["/posts/100"]["translations[fr]"] == 101
+    assert by_path["/posts/101"]["lang"] == "fr"
+    assert by_path["/posts/101"]["translations[en]"] == 100
+    assert by_path["/posts/101"]["translations[fr]"] == 101
+
+
+def test_link_translations_skipped_when_provider_none(mocker, caplog):
+    import logging
+
+    settings = _wp_settings(provider=I18nProvider.NONE, link_translations=True)
+    client = WordPressClient(settings)
+    link_spy = mocker.spy(client, "link_translations")
+
+    mocker.patch.object(client, "_ensure_auth")
+    mocker.patch.object(client, "probe_i18n_provider")
+    mocker.patch.object(
+        client,
+        "publish_post",
+        side_effect=[("created", 1), ("created", 2)],
+    )
+    mocker.patch("md2wp.sinks.wordpress.WordPressClient", return_value=client)
+
+    posts = [
+        _sample_post(slug="a", lang="en", translation_key="a"),
+        _sample_post(slug="a", lang="fr", translation_key="a"),
+    ]
+    with caplog.at_level(logging.WARNING):
+        publish_to_wordpress(posts, settings)
+
+    link_spy.assert_not_called()
+    assert "provider is 'none'" in caplog.text
+
+
+def test_wpml_link_translations_warns_without_request(mocker, caplog):
+    import logging
+
+    settings = _wp_settings(provider=I18nProvider.WPML, link_translations=True)
+    client = WordPressClient(settings)
+    request_paths: list[str] = []
+
+    def fake_request(method, path, **kwargs):
+        request_paths.append(path.split("?")[0])
+        return MagicMock(status_code=200, json=lambda: {})
+
+    mocker.patch.object(client, "_request", side_effect=fake_request)
+
+    with caplog.at_level(logging.WARNING):
+        client.link_translations({"hello": {"en": 100, "fr": 101}})
+
+    assert "WPML translation linking" in caplog.text
+    assert request_paths == []
+
+
+def test_polylang_link_skips_singleton_groups(mocker):
+    client = WordPressClient(
+        _wp_settings(provider=I18nProvider.POLYLANG, link_translations=True)
+    )
+    request_spy = mocker.patch.object(client, "_request")
+
+    client.link_translations({"solo": {"en": 42}, "pair": {"en": 1}})  # both < 2 langs
+
+    request_spy.assert_not_called()

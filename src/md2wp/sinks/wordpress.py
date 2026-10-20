@@ -329,6 +329,52 @@ class WordPressClient:
 
         return action, post_id
 
+    def _link_polylang_group(self, translation_key: str, lang_to_id: dict[str, int]) -> None:
+        """Link Polylang translations via REST query params (Pro required)."""
+        for lang, post_id in lang_to_id.items():
+            params: dict[str, Any] = {"lang": lang}
+            for other_lang, other_id in lang_to_id.items():
+                params[f"translations[{other_lang}]"] = other_id
+            response = self._request("POST", f"/posts/{post_id}", params=params)
+            if response.status_code >= 400:
+                logger.warning(
+                    "Polylang translation link failed for key %r post %s (%s): %s",
+                    translation_key,
+                    post_id,
+                    response.status_code,
+                    response.text[:200],
+                )
+
+    def link_translations(self, groups: dict[str, dict[str, int]]) -> None:
+        """Second pass: link language variants that share a translation_key."""
+        provider = self.settings.wordpress_i18n.provider
+        if provider == I18nProvider.NONE:
+            return
+
+        linkable = {key: langs for key, langs in groups.items() if len(langs) >= 2}
+        if not linkable:
+            return
+
+        if provider == I18nProvider.WPML:
+            # No documented stable public WPML REST for linking translation groups.
+            # Language was already set via ?wpml_language= on create/update.
+            logger.warning(
+                "WPML translation linking via REST is not available through a stable "
+                "public endpoint; %d group(s) were published with ?wpml_language= but "
+                "not linked. Link them in WPML admin or via WPML REST/Glue if exposed.",
+                len(linkable),
+            )
+            return
+
+        if provider == I18nProvider.POLYLANG:
+            for key, lang_to_id in linkable.items():
+                logger.info(
+                    "Linking Polylang translations for %r (%s)",
+                    key,
+                    ", ".join(f"{lang}={pid}" for lang, pid in sorted(lang_to_id.items())),
+                )
+                self._link_polylang_group(key, lang_to_id)
+
 
 def publish_to_wordpress(posts: list[Post], settings: Settings) -> ImportResult:
     client = WordPressClient(settings)
@@ -336,18 +382,36 @@ def publish_to_wordpress(posts: list[Post], settings: Settings) -> ImportResult:
     client.probe_i18n_provider()
 
     result = ImportResult(posts=posts, dry_run=False)
+    # translation_key → {lang → post_id}
+    translation_groups: dict[str, dict[str, int]] = {}
+
     for post in posts:
         try:
-            action, _ = client.publish_post(post)
+            action, post_id = client.publish_post(post)
             if action == "updated":
                 result.updated += 1
                 logger.info("Updated: %s", post.metadata.title)
             else:
                 result.published += 1
                 logger.info("Published: %s", post.metadata.title)
+
+            key = (post.metadata.translation_key or "").strip()
+            lang = (post.metadata.lang or "").strip()
+            if key and lang and post_id:
+                translation_groups.setdefault(key, {})[lang] = post_id
         except Exception as exc:
             result.failed += 1
             path = post.metadata.source_path or post.metadata.slug
             logger.error("Failed to publish %s: %s", path, exc)
+
+    i18n = settings.wordpress_i18n
+    if i18n.link_translations:
+        if i18n.provider == I18nProvider.NONE:
+            logger.warning(
+                "link_translations is enabled but wordpress.i18n.provider is 'none'; "
+                "skipping translation linking."
+            )
+        else:
+            client.link_translations(translation_groups)
 
     return result

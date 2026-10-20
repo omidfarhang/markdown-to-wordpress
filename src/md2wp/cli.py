@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from md2wp.config import ImportMode, PostStatus, load_settings, settings_as_dict
+from md2wp.interactive import prompt_missing_settings
 from md2wp.logging import setup_logging
 from md2wp.pipeline import run_export, run_import, run_validate
 
@@ -90,6 +91,13 @@ def import_cmd(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Parse only, do not publish")
     ] = False,
+    no_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive",
+            help="Do not prompt for missing settings (for scripts/CI)",
+        ),
+    ] = False,
     config: Annotated[
         Path | None, typer.Option("--config", "-c", help="Path to md2wp.toml")
     ] = None,
@@ -107,6 +115,11 @@ def import_cmd(
         include_drafts=include_drafts,
         dry_run=dry_run,
         verbose=verbose,
+    )
+    settings = prompt_missing_settings(
+        settings,
+        need_wp=not dry_run,
+        no_interactive=no_interactive,
     )
     setup_logging(settings.verbose)
 
@@ -150,6 +163,13 @@ def export_cmd(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Parse only, do not write WXR")
     ] = False,
+    no_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive",
+            help="Do not prompt for missing settings (for scripts/CI)",
+        ),
+    ] = False,
     config: Annotated[
         Path | None, typer.Option("--config", "-c", help="Path to md2wp.toml")
     ] = None,
@@ -167,6 +187,11 @@ def export_cmd(
         include_drafts=include_drafts,
         dry_run=dry_run,
         verbose=verbose,
+    )
+    settings = prompt_missing_settings(
+        settings,
+        need_export=not dry_run,
+        no_interactive=no_interactive,
     )
     setup_logging(settings.verbose)
 
@@ -200,6 +225,13 @@ def validate_cmd(
     include_drafts: Annotated[
         bool, typer.Option("--include-drafts", help="Include draft posts")
     ] = False,
+    no_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive",
+            help="Do not prompt for missing settings (for scripts/CI)",
+        ),
+    ] = False,
     config: Annotated[
         Path | None, typer.Option("--config", "-c", help="Path to md2wp.toml")
     ] = None,
@@ -217,6 +249,10 @@ def validate_cmd(
         include_drafts=include_drafts,
         dry_run=True,
         verbose=verbose,
+    )
+    settings = prompt_missing_settings(
+        settings,
+        no_interactive=no_interactive,
     )
     setup_logging(settings.verbose)
 

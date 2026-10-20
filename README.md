@@ -11,7 +11,7 @@ Import Markdown or Hugo build output into WordPress via the REST API or WXR expo
 - Upload local images and set featured media via the REST API
 - Export to WordPress WXR for offline migration (including attachments)
 - Dry-run and validate commands for safe previews
-- Configuration via CLI flags, `md2wp.toml`, or environment variables
+- Configuration via CLI flags, `md2wp.toml`, environment variables, or interactive prompts
 
 ## Quick start
 
@@ -38,7 +38,8 @@ md2wp import --source ./content/posts --dry-run
 1. Ensure the WordPress REST API is enabled (default on modern WordPress).
 2. Create an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/) for your user.
    The user must be able to **upload media** (`upload_files`) as well as create posts.
-3. Set credentials:
+3. Provide credentials via env, `md2wp.toml`, CLI flags, or interactive prompts
+   when you run a command on a TTY:
 
 ```bash
 export MD2WP_WORDPRESS_URL=https://yoursite.com/wp-json/wp/v2
@@ -50,6 +51,12 @@ Import as drafts first (recommended):
 
 ```bash
 md2wp import --source ./content/posts --status draft
+```
+
+Or run without env/config and answer the prompts:
+
+```bash
+md2wp import
 ```
 
 ## Usage
@@ -104,7 +111,11 @@ md2wp config show
 
 ## Configuration
 
-Precedence: **CLI flags > md2wp.toml > environment variables**.
+Precedence: **CLI flags > md2wp.toml > environment variables > interactive prompts**.
+
+On a TTY, missing required values (source, WordPress credentials, export
+output/domain) are prompted interactively—so you can run without a `.env` or
+`md2wp.toml`. Use `--no-interactive` in scripts/CI to fail instead of prompting.
 
 Copy the example config:
 

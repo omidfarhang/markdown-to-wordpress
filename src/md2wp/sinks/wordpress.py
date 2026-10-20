@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
-from md2wp.config import Settings
+from md2wp.config import I18nProvider, Settings
 from md2wp.logging import get_logger
 from md2wp.media import collect_local_images, resolve_featured_path, rewrite_image_srcs
 from md2wp.models import ImportResult, Post
@@ -26,6 +26,7 @@ class WordPressClient:
         self._tag_cache: dict[str, int] = {}
         self._category_cache: dict[str, int] = {}
         self._media_cache: dict[Path, dict[str, Any]] = {}
+        self._wpml_lang_mismatch_warned = False
 
     def _request(self, method: str, path: str, **kwargs) -> requests.Response:
         url = f"{self.base_url}{path}"
@@ -101,11 +102,56 @@ class WordPressClient:
             if category.strip()
         ]
 
-    def _find_post_by_slug(self, slug: str) -> dict[str, Any] | None:
-        response = self._request("GET", "/posts", params={"slug": slug, "status": "any"})
+    def _wp_json_root(self) -> str:
+        """Return the wp-json root (parent of /wp/v2 when present)."""
+        url = self.base_url.rstrip("/")
+        if url.endswith("/wp/v2"):
+            return url[: -len("/wp/v2")]
+        return url
+
+    def _lang_query_params(self, lang: str) -> dict[str, str]:
+        """Language query params for Polylang/WPML REST; empty when provider is none."""
+        code = (lang or "").strip()
+        if not code:
+            return {}
+        provider = self.settings.wordpress_i18n.provider
+        if provider == I18nProvider.POLYLANG:
+            return {"lang": code}
+        if provider == I18nProvider.WPML:
+            return {"wpml_language": code}
+        return {}
+
+    def _find_post_by_slug(self, slug: str, lang: str = "") -> dict[str, Any] | None:
+        params: dict[str, Any] = {"slug": slug, "status": "any"}
+        params.update(self._lang_query_params(lang))
+        response = self._request("GET", "/posts", params=params)
         response.raise_for_status()
         items = response.json()
         return items[0] if items else None
+
+    def probe_i18n_provider(self) -> None:
+        """Soft-check that the configured i18n plugin REST surface is available."""
+        provider = self.settings.wordpress_i18n.provider
+        if provider == I18nProvider.POLYLANG:
+            url = f"{self._wp_json_root()}/pll/v1/languages"
+            try:
+                response = requests.get(url, auth=self.auth, timeout=30)
+            except requests.RequestException as exc:
+                logger.warning(
+                    "Polylang REST probe failed (%s). "
+                    "Language query params require Polylang Pro REST API.",
+                    exc,
+                )
+                return
+            if response.status_code >= 400:
+                logger.warning(
+                    "Polylang REST endpoint missing or inaccessible (%s %s). "
+                    "Language assignment via ?lang= requires Polylang Pro. "
+                    "Posts will still get postmeta lang.",
+                    response.status_code,
+                    url,
+                )
+        # WPML: no reliable probe endpoint; mismatches checked after create/update.
 
     def _media_filename_matches(self, item: dict[str, Any], filename: str) -> bool:
         name = filename.lower()
@@ -219,17 +265,43 @@ class WordPressClient:
                 "Failed to set meta %s on post %s: %s", key, post_id, response.text[:200]
             )
 
+    def _warn_wpml_lang_mismatch(self, requested: str, response_data: dict[str, Any]) -> None:
+        if self._wpml_lang_mismatch_warned or not requested:
+            return
+        reflected = None
+        for key in ("lang", "language", "wpml_language", "wpml_current_locale"):
+            value = response_data.get(key)
+            if value:
+                reflected = str(value).split("-")[0].lower()
+                break
+        if reflected is None:
+            return
+        if reflected != requested.strip().lower():
+            self._wpml_lang_mismatch_warned = True
+            logger.warning(
+                "WPML create/update response language %r does not match requested %r. "
+                "Check that WPML REST language filtering (?wpml_language=) is enabled.",
+                reflected,
+                requested,
+            )
+
     def publish_post(self, post: Post) -> tuple[str, int]:
         html_content, featured_media = self._prepare_post_media(post)
         payload = self._build_payload(post, html_content, featured_media)
-        existing = self._find_post_by_slug(post.metadata.slug)
+        lang = post.metadata.lang
+        lang_params = self._lang_query_params(lang)
+        existing = self._find_post_by_slug(post.metadata.slug, lang=lang)
 
         if existing:
             post_id = existing["id"]
-            response = self._request("PUT", f"/posts/{post_id}", json=payload)
+            response = self._request(
+                "PUT", f"/posts/{post_id}", json=payload, params=lang_params or None
+            )
             action = "updated"
         else:
-            response = self._request("POST", "/posts", json=payload)
+            response = self._request(
+                "POST", "/posts", json=payload, params=lang_params or None
+            )
             action = "created"
             post_id = response.json().get("id") if response.ok else 0
 
@@ -238,6 +310,16 @@ class WordPressClient:
                 f"Failed to {action} post '{post.metadata.title}' "
                 f"({response.status_code}): {response.text[:300]}"
             )
+
+        if (
+            self.settings.wordpress_i18n.provider == I18nProvider.WPML
+            and lang
+            and response.ok
+        ):
+            try:
+                self._warn_wpml_lang_mismatch(lang, response.json())
+            except (ValueError, TypeError):
+                pass
 
         if post_id:
             if post.metadata.shortlink:
@@ -251,6 +333,7 @@ class WordPressClient:
 def publish_to_wordpress(posts: list[Post], settings: Settings) -> ImportResult:
     client = WordPressClient(settings)
     client._ensure_auth()
+    client.probe_i18n_provider()
 
     result = ImportResult(posts=posts, dry_run=False)
     for post in posts:

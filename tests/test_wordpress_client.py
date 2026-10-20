@@ -294,6 +294,7 @@ def test_polylang_passes_lang_query_params_on_create(mocker):
 def test_polylang_passes_lang_query_params_on_update(mocker):
     client = WordPressClient(_wp_settings(provider=I18nProvider.POLYLANG))
     captured: list[tuple[str, str, dict]] = []
+    meta_calls: list[tuple[str, str]] = []
 
     def fake_request(method, path, **kwargs):
         key = path.split("?")[0]
@@ -304,6 +305,10 @@ def test_polylang_passes_lang_query_params_on_update(mocker):
             )
         if method == "PUT" and key == "/posts/55":
             return MagicMock(status_code=200, json=lambda: {"id": 55, "lang": "fr"})
+        if method == "POST" and key == "/posts/55/meta":
+            body = kwargs.get("json") or {}
+            meta_calls.append((body.get("key"), body.get("value")))
+            return MagicMock(status_code=201, json=lambda: {})
         if method == "GET" and key in ("/tags", "/categories"):
             return MagicMock(
                 status_code=200,
@@ -323,6 +328,7 @@ def test_polylang_passes_lang_query_params_on_update(mocker):
 
     put = next(c for c in captured if c[0] == "PUT" and c[1] == "/posts/55")
     assert put[2] == {"lang": "fr"}
+    assert ("lang", "fr") in meta_calls
 
 
 def test_wpml_passes_wpml_language_query_params(mocker):

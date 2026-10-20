@@ -232,3 +232,15 @@ def test_i18n_from_env_when_toml_unset(tmp_path, monkeypatch):
 
     assert settings.wordpress_i18n.provider == I18nProvider.POLYLANG
     assert settings.wordpress_i18n.link_translations is True
+
+
+def test_i18n_env_link_translations_falsey(tmp_path, monkeypatch):
+    config = tmp_path / "md2wp.toml"
+    config.write_text("[wordpress]\n", encoding="utf-8")
+    monkeypatch.setenv("MD2WP_I18N_PROVIDER", "wpml")
+    monkeypatch.setenv("MD2WP_I18N_LINK_TRANSLATIONS", "false")
+
+    settings = load_settings(config_path=config)
+
+    assert settings.wordpress_i18n.provider == I18nProvider.WPML
+    assert settings.wordpress_i18n.link_translations is False

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "md2wp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Import Markdown or Hugo build output into WordPress via REST API or WXR export"
 readme = "README.md"
 license = "MIT"
@@ -46,7 +46,7 @@ md2wp = "md2wp.cli:app"
 packages = ["src/md2wp"]
 
 [tool.hatch.build.targets.sdist]
-only-include = ["src/md2wp", "README.md", "LICENSE", "md2wp.toml.example"]
+only-include = ["src/md2wp", "README.md", "CHANGELOG.md", "LICENSE", "md2wp.toml.example"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

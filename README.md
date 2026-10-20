@@ -15,10 +15,32 @@ Import Markdown or Hugo build output into WordPress via the REST API or WXR expo
 
 ## Quick start
 
+### Download a binary (no Python required)
+
+Grab the latest release for your OS from
+[GitHub Releases](https://github.com/omidfarhang/markdown-to-wordpress/releases):
+
+| Platform | Asset |
+|----------|--------|
+| Linux x86_64 | `md2wp-linux-x86_64` |
+| macOS Intel | `md2wp-macos-x86_64` |
+| macOS Apple Silicon | `md2wp-macos-arm64` |
+| Windows x86_64 | `md2wp-windows-x86_64.exe` |
+
 ```bash
-git clone <repo-url>
+# Linux / macOS example
+chmod +x md2wp-linux-x86_64
+./md2wp-linux-x86_64 validate --source ./content/posts
+```
+
+### From source (Python 3.10+)
+
+```bash
+git clone https://github.com/omidfarhang/markdown-to-wordpress.git
 cd markdown-to-wordpress
-pip install -e ".[dev]"
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install .
 ```
 
 Validate your content without touching WordPress:
@@ -237,6 +259,8 @@ Missing local files log a warning and leave the original `src` unchanged.
 The old entry point still works but prints a deprecation warning.
 
 ## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, binaries, and release steps.
 
 ```bash
 pip install -e ".[dev]"

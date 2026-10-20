@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-20
+
+### Added
+
+- Interactive prompts for missing settings when running on a TTY (`prompt_missing_settings`, `--no-interactive` to disable)
+- WordPress i18n settings (`wordpress.i18n.provider`, `link_translations`) via TOML, env, and examples
+- `translation_key` on posts from frontmatter or `*.xx.md` filename stems
+- Lang-scoped slug lookup and create/update query params for Polylang Pro / WPML; always write `lang` postmeta
+- Optional second-pass translation linking (Polylang; WPML best-effort)
+- Standalone binary builds via PyInstaller (`md2wp.spec`, optional `[bin]` extra)
+- GitHub Actions release workflow that publishes Linux, macOS (Intel + ARM), and Windows binaries on `v*` tags
+- README Quick start for downloading release binaries without installing Python
+
+### Changed
+
+- Prefer venv/`pip install .` for source installs; document binary downloads as the primary Quick start path
+
 ## [0.2.0] - 2026-10-20
 
 ### Added

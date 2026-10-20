@@ -7,7 +7,8 @@ Import Markdown or Hugo build output into WordPress via the REST API or WXR expo
 - Parse Markdown files with YAML front matter (recursive scan)
 - Crawl Hugo build output with configurable CSS selectors
 - Publish to WordPress with tag/category resolution and slug upsert
-- Export to WordPress WXR for offline migration
+- Upload local images and set featured media via the REST API
+- Export to WordPress WXR for offline migration (including attachments)
 - Dry-run and validate commands for safe previews
 - Configuration via CLI flags, `md2wp.toml`, or environment variables
 
@@ -35,6 +36,7 @@ md2wp import --source ./content/posts --dry-run
 
 1. Ensure the WordPress REST API is enabled (default on modern WordPress).
 2. Create an [Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/) for your user.
+   The user must be able to **upload media** (`upload_files`) as well as create posts.
 3. Set credentials:
 
 ```bash
@@ -76,6 +78,12 @@ md2wp export \
 ```
 
 Import the resulting XML via **WordPress Admin → Tools → Import → WordPress**.
+
+Local images are rewritten to absolute URLs under `--domain`
+(`{domain}/wp-content/uploads/md2wp/<filename>`) and emitted as WXR `attachment`
+items. WordPress import still needs those files reachable at those URLs (or a
+follow-up media sync)—copy files into the matching uploads path before or after
+import if needed.
 
 ### Validate
 
@@ -126,6 +134,7 @@ Markdown Python-Markdown extensions are configured in `md2wp.toml` under `[markd
 title: "My Post Title"
 date: 2024-08-13T16:42:19+03:30
 url: 2024/08/13/my-post/
+featured_image: images/cover.png
 tags:
   - Tag One
 categories:
@@ -134,11 +143,30 @@ lang: en
 draft: false
 ---
 Your Markdown content here.
+
+![Alt text](images/diagram.png)
 ```
 
 Required fields: `title`, `date`. Slug is derived from `url` or the filename.
 
+`featured_image` (or `image`) sets the WordPress featured media. Relative paths
+are resolved against the Markdown file’s directory. Relative `<img src>` values
+in the body are uploaded (import) or rewritten to domain URLs (WXR export);
+`http(s):` and `data:` sources are left unchanged.
+
 Files named `_index.md` and posts with `draft: true` are skipped unless `--include-drafts` is set.
+
+## Media
+
+On **import**, md2wp:
+
+1. Finds local `img[src]` paths in the HTML
+2. Uploads each file via `POST /media` (or reuses an existing media item when
+   the filename/slug already matches)
+3. Rewrites `src` to the WordPress `source_url`
+4. Sets `featured_media` when `featured_image` / `image` is present
+
+Missing local files log a warning and leave the original `src` unchanged.
 
 ## Migration from the old script
 

@@ -122,6 +122,24 @@ def parse_markdown_file(path: Path, settings: Settings) -> Post | None:
     if not html_content.strip():
         logger.warning("Empty content body in %s", path)
 
+    featured_raw = metadata.get("featured_image") or metadata.get("image")
+    featured_image = str(featured_raw).strip() if featured_raw else None
+
+    known_keys = {
+        "title",
+        "date",
+        "slug",
+        "url",
+        "tags",
+        "categories",
+        "lang",
+        "excerpt",
+        "shortlink",
+        "draft",
+        "featured_image",
+        "image",
+    }
+
     return Post(
         metadata=PostMetadata(
             title=str(title),
@@ -134,24 +152,9 @@ def parse_markdown_file(path: Path, settings: Settings) -> Post | None:
             excerpt=str(metadata.get("excerpt", "")),
             shortlink=str(metadata.get("shortlink", "")),
             draft=bool(metadata.get("draft", False)),
+            featured_image=featured_image or None,
             source_path=path,
-            extra={
-                k: v
-                for k, v in metadata.items()
-                if k
-                not in {
-                    "title",
-                    "date",
-                    "slug",
-                    "url",
-                    "tags",
-                    "categories",
-                    "lang",
-                    "excerpt",
-                    "shortlink",
-                    "draft",
-                }
-            },
+            extra={k: v for k, v in metadata.items() if k not in known_keys},
         ),
         html_content=html_content,
     )

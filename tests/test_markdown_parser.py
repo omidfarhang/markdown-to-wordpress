@@ -52,3 +52,14 @@ def test_includes_drafts_when_requested():
     settings = Settings(recursive=False, include_drafts=True)
     posts, errors, skipped = discover_and_parse_markdown(FIXTURES, settings)
     assert any(p.metadata.title == "Draft Post" for p in posts)
+
+
+def test_parses_featured_image():
+    settings = Settings(recursive=False, include_drafts=False)
+    posts, errors, skipped = discover_and_parse_markdown(FIXTURES / "media-post", settings)
+    assert not errors
+    assert len(posts) == 1
+    post = posts[0]
+    assert post.metadata.featured_image == "images/cover.png"
+    assert "images/inline.png" in post.html_content
+    assert "https://cdn.example.com/remote.png" in post.html_content

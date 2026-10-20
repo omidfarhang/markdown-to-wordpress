@@ -18,6 +18,7 @@ class PostMetadata:
     excerpt: str = ""
     shortlink: str = ""
     draft: bool = False
+    featured_image: str | None = None
     source_path: Path | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 

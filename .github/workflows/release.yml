@@ -17,7 +17,7 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: md2wp-linux-x86_64
-          - os: macos-13
+          - os: macos-15-intel
             artifact: md2wp-macos-x86_64
           - os: macos-latest
             artifact: md2wp-macos-arm64

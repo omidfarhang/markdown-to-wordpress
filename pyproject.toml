@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "md2wp"
-version = "0.3.0"
+version = "0.3.1"
 description = "Import Markdown or Hugo build output into WordPress via REST API or WXR export"
 readme = "README.md"
 license = "MIT"
